@@ -102,3 +102,27 @@ coord_flip() +
   ggtitle("Review Word Counts")
 ```
 
+## Haciendo nubes de palabras
+
+Yo no soy fan de las nubes de palabras porque me parece que como gráficos son poco explicativos. Pero hay quienes las prefieren, de modo que hay que aprender a hacerlas. 
+
+Sería de este modo. 
+
+```{r}
+# Cargamos la libreria (previamente instalada) `wordcloud`
+library(wordcloud)
+
+# luego usamos nuestro data framde palabras ya limpio: word_counts
+
+word_count <- tidy_review %>%
+  count(word)
+  wordcloud(
+    words = word_count$word,
+    freq = word_count$n,
+    max.words = 30,
+    color = "blue"
+  )
+
+
+```
+
