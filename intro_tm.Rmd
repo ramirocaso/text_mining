@@ -6,7 +6,7 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
 ```
 
 ## Analizando texto
@@ -49,7 +49,7 @@ Estas dos operaciones le dan estructura a los datos de texto. Tokenizar signific
 
 De lo anterior se desprende que partir un documento en palabras sea llamado `tokenizing`
 
-```{r}
+```{r message=TRUE, warning=FALSE}
 
 # Instalamos y usamos tidytext
 library(tidytext)
