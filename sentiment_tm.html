@@ -284,12 +284,10 @@ ggplot(sentiment_counts, aes(x=sentiment2, y=n)) +
   count(sentiment) %&gt;% 
   mutate(sentiment2 = fct_reorder(sentiment,n))
 
-# Visualize sentiment_counts using the new sentiment factor column
 ggplot(sentiment_counts, aes(sentiment2, y=n)) +
   geom_col() +
   coord_flip() +
-  # Change the title to &quot;Sentiment Counts in NRC&quot;, x-axis to &quot;Sentiment&quot;, and y-axis to &quot;Counts&quot;
-  labs(
+    labs(
     title =  &quot;Sentiment Counts in NRC&quot;,
     x = &quot;Sentiment&quot;,
     y = &quot;Counts&quot;
