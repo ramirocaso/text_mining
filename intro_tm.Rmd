@@ -1,0 +1,88 @@
+---
+title: "Introducción Text Mining"
+author: "Ramiro Casó - Incae Business School"
+date: "3/29/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Analizando texto
+
+Este es el documento que elaboraré como parte de mi repaso y aprendizaje de los conceptos esenciales de Text Mining. 
+
+Para trabajar con Text Mining, usaré la colección de paquetes en `tidyverse`, así como un paquete llamado `tidytext`  
+
+Lo primero es hacwer un brevísimo análisis exploratorio de datos. 
+
+```{r warning=FALSE}
+# Instalar y cargar tidyverse
+library(tidyverse)
+library(dplyr)
+
+# importamos el data set que usaremos, que ya tenemos en nuestro WD. 
+library(readr)
+review_data <- read_csv("Roomba Reviews.csv")
+str(review_data)
+
+# Calculemos el promedio de reviews para un producto en específico. 
+review_data %>%
+  filter(Product == "iRobot Roomba 650 for Pets") %>%
+  summarize(stars_mean = mean(Stars))
+
+# Hagamos lo mismo pero por producto. 
+review_data %>%
+  group_by(Product) %>%
+  summarize(stars_mean = mean(Stars), stars_sd = sd(Stars), number_rows = n())
+  
+```
+
+# Tokenización y limpiado
+Estas dos operaciones le dan estructura a los datos de texto. Tokenizar significa partir el texto en palabras. Siguiendo el vocabulario del natural language processing (NLP): 
+
+* Bolsa de palabras: Todas las palabras en un documento son independientes
+* Cada cuerpo separado de texto es un documento. 
+* Cada palabra única es un término
+* Cada ocurrencia de un término es un token. 
+
+De lo anterior se desprende que partir un documento en palabras sea llamado `tokenizing`
+
+```{r}
+
+# Instalamos y usamos tidytext
+library(tidytext)
+
+# Usando unnest_tokens
+
+tidy_review <- review_data %>%
+  unnest_tokens(word, Review)
+  
+tidy_review # este es nuestro data frame con las palabras, que ahora podemos contar. 
+
+tidy_review %>%
+  count(word) %>%
+  arrange(desc(n))
+```
+Podemos ver como las palabras más comunes son las llamadas "stopwords" cuyo significado no suma ni resta al análisis. Estas palabras debemos removerlas. 
+
+Para ello, usaremos una función llamada `anti_join`. Lo que esta función hace es unir 2 tablas de modo que se mantienen en la tabla final solo aquellos elementos que no son compartidos. Usando la data frame de `stop_words` que viene ya en el paquete de `tidytext`, podemos hacer justo eso. 
+
+Noten de nuevo que lo que estamos haciendo es ELIMINANDO los stops words, porque lo estamos "anti-uniendo" con el DF de los stop-words. 
+
+```{r}
+tidy_review2 <- review_data %>% #importante crear un objeto nuevo para no sobre-escribir el anterior. 
+  unnest_tokens(word, Review) %>%
+  anti_join(stop_words)
+
+tidy_review2 %>% #Ahora podemos volver a contar las palabras y ver cómo los stops-words desaparecen. 
+  count(word) %>%
+  arrange(desc(n))
+```
+
+Con esto damos fin a la primera parte de Text Mining. 
+
+
+
+

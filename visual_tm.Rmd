@@ -1,0 +1,43 @@
+---
+title: "visual_tm"
+author: "Ramiro Casó - Incae Business School"
+date: "3/29/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Visualizando texto
+
+En la primera parte de estos breves tutoriales / repasos, analizamos los datos de reviews para el producto Roomba. Hicimos una breve limpieza, tokenizamos, contamos y filtramos palabras (stop words). Ahora podemos empezar a analizar visualmente esa data. 
+
+Para ello, necesitaremos el paquete ggplot2. 
+
+```{r}
+# retommemos donde dejamos el tutorial pasado. Para ello, creemos un nuevo objeto llamado word_counts
+
+word_counts <- tidy_review %>%
+  count(word) %>%
+  arrange(desc(n))
+
+ggplot(
+  word_counts, aes(x = word, y = n)
+) + geom_col()
+
+```
+Lo que hicemos no da un buen resultado, porque intenta graficar todas las palabras, inclusive las de muy baja frecuencia. 
+Para resolver este problema, debemos filtrar y dejarnos solo aquellas palabras que tienen una frecuencia alta, de digamos, más de 300. 
+
+```{r}
+word_count2 <- tidy_review %>%
+  count(word) %>%
+  filter (n>300) %>%
+  arrange(desc(n))
+ggplot(
+  word_count2, aes(x = word, y = n)
+) + geom_col() +
+coord_flip() + 
+  ggtitle("Review Word Counts")
+```

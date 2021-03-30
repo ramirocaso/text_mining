@@ -1,0 +1,104 @@
+---
+title: "Visualización de Texto"
+author: "Ramiro Casó - Incae Business School"
+date: "3/29/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Visualicemos la data de texto que tenemos. 
+
+En la primera parte de estos breves tutoriales / repasos, analizamos los datos de reviews para el producto Roomba. Hicimos una breve limpieza, tokenizamos, contamos y filtramos palabras (stop words). Ahora podemos empezar a analizar visualmente esa data. 
+
+Para ello, necesitaremos el paquete ggplot2. 
+
+```{r warning=FALSE}
+library(dplyr)
+library(ggplot2)
+library(tidytext)
+library(readr)
+library(forcats)
+
+review_data <- read_csv("Roomba Reviews.csv")
+
+tidy_review <- review_data %>%
+  unnest_tokens(word, Review) %>%
+  anti_join(stop_words)
+
+word_counts <- tidy_review %>%
+  count(word)  %>%
+  arrange(desc(n))
+
+ggplot(
+  word_counts, aes(x = word, y = n)
+) + geom_col()
+
+```
+
+
+
+Lo que hicemos no da un buen resultado, porque intenta graficar todas las palabras, inclusive las de muy baja frecuencia. 
+
+Para resolver este problema, debemos filtrar y dejarnos solo aquellas palabras que tienen una frecuencia alta, de digamos, más de 300. 
+
+```{r}
+word_count <- tidy_review %>%
+  count(word) %>%
+  filter (n>300) %>%
+  arrange(desc(n))
+
+ggplot(
+  word_count, aes(x = word, y = n)
+) + geom_col() +
+coord_flip() + 
+  ggtitle("Review Word Counts")
+```
+## Removiendo custom stop words
+El siguiente paso es quitar los stops words específicos de este data set y que no están incluídos en el data set de `stopwords` que hemos usado con el `anti-join`. 
+
+Para ello, debemos hacer un data frame propio. Podemos hacerlo con el operador `tribble` o armando un data frame normal. 
+
+```{r}
+word <- c("roomba","2")
+lexicon <- c("CUSTOM", "CUSTOM")
+custom_sw <-data.frame(word,lexicon)
+custom_sw
+```
+Una vez creado ese nuevo data frame, lo debemos unir al que teníamos. Eso lo hacemos con el operador `bind_rows` que le suma filas al data frame original. 
+
+```{r}
+stop_words2 <- stop_words %>%
+  bind_rows(custom_sw)
+```
+
+Ahora repetimos el proceso que hicimos anteriormente, combinando en un solo grupo de código todo lo que necesitamos.  
+```{r}
+tidy_review2 <- review_data %>%
+  mutate(id= row_number()) %>%
+  select(id, Date, Product, Stars, Review) %>%
+  unnest_tokens(word, Review) %>%
+  anti_join (stop_words2)
+tidy_review2
+```
+Para poder ordenar los gráficos que hemos usado, utilizaremos la función `fct_reorder` que re-ordena las variables de texto. 
+
+```{r}
+word_count <- tidy_review2 %>%
+  count(word) %>%
+  filter (n>300) %>%
+  mutate (word2 = fct_reorder(word,n))
+word_count
+```
+Con esto ya podemos hacer el gráfico ordenado. 
+
+```{r}
+ggplot(
+  word_count, aes(x = word2, y = n)
+) + geom_col() +
+coord_flip() + 
+  ggtitle("Review Word Counts")
+```
+
