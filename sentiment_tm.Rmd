@@ -1,0 +1,182 @@
+---
+title: "Sentiment Analysis"
+author: "Ramiro Casó - Incae Business School"
+date: "3/30/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(tidyverse)
+```
+
+## Diccionarios de sentimientos
+
+Para hacer análisis de sentimiento, se recomiendo utilizar diccionarios de sentimientos existentes. El paquete `tidytext` trae  varios diccionarios pre-cargados, pero están todos en inglés. 
+
+* Bing dictionario: un data frame con palabras categorizadas por sentimientos positivo o negativo
+
+```{r}
+library(tidytext)
+library(textdata)
+
+get_sentiments("bing")
+
+get_sentiments("bing") %>%
+  count(sentiment)
+
+```
+* Afinn dictionary: un data frame con palabras a las que se les asigna un puntaje numérico de sentimiento. 
+
+```{r}
+
+get_sentiments("afinn")
+
+get_sentiments("afinn") %>%
+  summarize(
+    min = min(value),
+    max = max(value)
+  )
+```
+
+* Loughran dictionary: un data frame con palabras a las que se les asigna una categoría nominal de sentimiento a cada palabra. A diferencia de `bing` este diccionario usa distintas categorías, no solo positivo y negativo. 
+
+Para echarle un ojo a este diccionario, podemos usar el siguiente código. 
+
+```{r}
+
+get_sentiments("loughran")
+
+sentiment_counts <- get_sentiments("loughran") %>%
+  count(sentiment) %>%
+  mutate(sentiment2 = fct_reorder(sentiment,n))
+
+ggplot(sentiment_counts, aes(x=sentiment2, y=n)) +
+  geom_col() +
+  coord_flip() +
+  labs(
+    title = "Sentiment Counts in Loughran",
+    x = "Counts",
+    y = "Sentiment"
+  )
+```
+
+* NRC dictionary: Por último, el diccionario NRC, que es quizá el más completo. Categoriza las palabras en función de 10 tipos de sentimientos, como se puede ver en el resumen que hacemos seguidamente. 
+
+```{r}
+
+get_sentiments("nrc")
+
+sentiment_counts <- get_sentiments("nrc") %>% 
+  count(sentiment) %>% 
+  mutate(sentiment2 = fct_reorder(sentiment,n))
+
+# Visualize sentiment_counts using the new sentiment factor column
+ggplot(sentiment_counts, aes(sentiment2, y=n)) +
+  geom_col() +
+  coord_flip() +
+  # Change the title to "Sentiment Counts in NRC", x-axis to "Sentiment", and y-axis to "Counts"
+  labs(
+    title =  "Sentiment Counts in NRC",
+    x = "Sentiment",
+    y = "Counts"
+  )
+```
+
+## Añadiendo los diccionarios de sentimientos
+
+Ahora que tenemos los diccionarios, debemos añadirlos a nuestro data frame de palabras ya limpios. 
+
+```{r}
+
+# Nuestro data frame original
+review_data <- read_csv("Roomba Reviews.csv")
+
+# Estas eras nuestras stopwords custom. 
+word <- c("roomba","2")
+lexicon <- c("CUSTOM", "CUSTOM")
+custom_sw <-data.frame(word,lexicon)
+
+# Así las uníamos al df de stopwords que trae el paquete tidytext
+stop_words2 <- stop_words %>%
+  bind_rows(custom_sw)
+
+# Así creamos el objeto tidy_review en el que ya tenemos limpia toda la data, tokenizada y libre de stopwords. 
+tidy_review <- review_data %>%
+  mutate(id= row_number()) %>%
+  select(id, Date, Product, Stars, Review) %>%
+  unnest_tokens(word, Review) %>%
+  anti_join (stop_words2)
+
+#finalmente, unimos el diccionario a data frame tidy_review
+
+tidy_review %>%
+  inner_join(get_sentiments("loughran"))
+
+```
+
+Noten que usamos un inner join. Eso lo que hace es unir dos tables a través de la columna word, siempre y cuando coincidan las dos palabras. De este modo, dejamos en nuestro data frame solo aquellos sentimientos de las palabras que tokenizamos. 
+
+## Contando sentimientos
+
+Una vez que hemos añadido el diccionario, podemos hacer análisis de los sentimientos más comunes en nuestro data set. 
+
+Veamos cómo
+
+```{r}
+# creamos un objeto llamado sentiment_review en donde guardaremos la unión del diccionario con nuestro df. 
+sentiment_review <- tidy_review %>%
+  inner_join(get_sentiments("loughran"))
+
+str(sentiment_review)
+
+# Ahora podemos empezar a hacer análisis, como contar, por ejemplo. 
+
+sentiment_review %>%
+  count(sentiment) %>%
+  arrange(desc(n))
+```
+Otra cosa que podemos hacer es contar por palabra y por sentimiento
+
+```{r}
+
+sentiment_review %>%
+  count(word, sentiment) %>%
+  arrange(desc(n))
+```
+
+## Visualizando sentimientos
+
+Utilizando mucho de lo aprendido en este turorial de Text Mining, podemos ahora visualizar los sentimientos. 
+
+```{r}
+
+# creamos el objeto sentiment_review2 en el que solo dejamos las filas que contengan sentimientos positivos o negativos. 
+
+sentiment_review2 <- sentiment_review %>%
+  filter(sentiment %in% c("positive", "negative"))
+
+# rehacemos el objetio word_counts. 
+
+word_counts <-sentiment_review2 %>%
+  count(word,sentiment) %>%
+  group_by(sentiment) %>%
+  top_n(10,n) %>%
+  ungroup() %>%
+  mutate(
+    word2 = fct_reorder(word,n)
+  )
+word_counts
+
+# Hacemos el gráfico de barras
+ggplot(word_counts, aes(x=word2, y=n, fill = sentiment)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ sentiment, scales = "free") +
+  coord_flip() +
+  labs(
+    title = "Sentiment Word Counts",
+    x = "Words"
+  )
+```
+
