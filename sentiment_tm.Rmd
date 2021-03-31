@@ -178,3 +178,89 @@ ggplot(word_counts, aes(x=word2, y=n, fill = sentiment)) +
   )
 ```
 
+## Incluyendo los ratings. 
+
+Ya hemos visualizado bien los sentimientos. ¿Qué más podemos hacer? Podemos utilizar la información numérica en los ratings para hacer más completo el análisis. 
+
+Para ello, debemos usar la función `spread` que nos permite pasar los valores de una variable categórica (en este caso los sentimientos) a columnas y llenarlos con el conteo o n. 
+
+Vemoa
+
+```{r}
+tidy_review %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(Stars, sentiment) %>%
+  spread(sentiment, n) # Noten que acá spread lo que hace es poner los sentimientos separados (es decir, spreded) en columnas y lo llena con el conteno. 
+```
+
+Con este nuevo arreglo, podemos hacer un cálculo de la diferencia entre positivos y negativos, e incluso el % relativo del total. Solo debemos usar la función `mutate` para ello. 
+
+Veamos. 
+
+```{r}
+tidy_review %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(Stars, sentiment) %>%
+  spread(sentiment, n) %>%
+  mutate(overall_sentiment = positive - negative, pos_relative = (positive / (positive + negative))*100, neg_relative = (negative /(positive + negative))*100)
+```
+
+Reordenmos lo hecho anterioremente y en una versión más simple, para visualizarlo. 
+```{r}
+sentiment_stars <- tidy_review %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(Stars, sentiment) %>%
+  spread(sentiment, n) %>%
+  mutate(overall_sentiment = positive - negative,
+         stars2 = fct_reorder(as.factor(Stars), overall_sentiment
+                             ))
+ggplot(sentiment_stars, 
+       aes(x=Stars, y=overall_sentiment, fill = as.factor(Stars))
+       ) +
+  geom_col(show.legend = FALSE) +
+  coord_flip() +
+  labs(
+    title = "Overall Sentiment by Stars",
+    subtitle = "Revierws for Robotic Vacuums",
+    legend.title = "Stars Ratings",
+    x = "Stars",
+    y = "Overall Sentiment"
+  )
+```
+
+Si quisiéramos, podríamos también visualizar los valores relativos que hicimos anteriormente. 
+
+Veamos
+
+```{r}
+sentiment_stars_rel <-tidy_review %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(Stars, sentiment) %>%
+  spread(sentiment, n) %>%
+  mutate(overall_sentiment = positive - negative, pos_relative = (positive / (positive + negative))*100, neg_relative = (negative /(positive + negative))*100)
+
+ggplot(sentiment_stars_rel, 
+       aes(x=Stars, y=pos_relative, fill = as.factor(Stars))
+       ) +
+  geom_col(show.legend = FALSE) +
+  coord_flip() +
+  labs(
+    title = "Relartive Positive Sentiment by Stars",
+    subtitle = "Revierws for Robotic Vacuums",
+    x = "Stars",
+    y = "% of Positive"
+  )
+
+ggplot(sentiment_stars_rel, 
+       aes(x=Stars, y=neg_relative, fill = as.factor(Stars))
+       ) +
+  geom_col(show.legend = FALSE) +
+  coord_flip() +
+  labs(
+    title = "Relartive Negative Sentiment by Stars",
+    subtitle = "Revierws for Robotic Vacuums",
+    x = "Stars",
+    y = "% of Negative"
+  )
+```
+
