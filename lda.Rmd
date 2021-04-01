@@ -1,0 +1,187 @@
+---
+title: "LDA"
+author: "Ramiro Casó - Incae Business School"
+date: "4/1/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(tidyverse)
+library(tidytext)
+```
+
+## Latend Dirichlet Allocation (LDA)
+
+LDA es un algoritmo que nos permite hacer buscar patrones de palabras que ocurren juntas en cada documento y en el corpus o colección de documentos. 
+LDA crea una nueva bolsa de palabras para cada documento de forma separada y busca patrones de ocurrencia en ellos. Como no hay variable dependiente, LDA es considerado un modelo de Data Mining no supervisada, similar a K-means. 
+Los tópicos son listas de todas las palabras en el corpus junto a sus probabilidades por tópico. Las palabras que se usan juntas tendrán una probabilidad más alta. 
+La diferencia entre LDA y Clustering (como K-means) es estas últimas usan distancias - una variable continua - para calcular las pertenencias a los clusters y las observaciones pueden pertenecer a un solo cluster. En LDA, los tópicos (o clusters) se hallan usando probabilidades de palabras (su frecuencia relativa) y pueden haber membrecías parciales, es decir, cada documento puede pertenecer de forma parcial a varios tópicos. 
+
+### Document Termn Matrix
+Para poder hacer un análisis de tópicos, se necesita crear un Document Term Matrix o DTM. 
+Un DTM es una matriz que contiene en sus filas cada documento (pensemos en un review o un tweet) y en las columnas cada palabra del corpus. Dentro de la matriz se coloca un 1 si la palabra está en el documento y un 0 si no está. 
+
+Los DTM son matrices con mucho sparcity, es decir, están compuestas fundamentalmente por 0, esto porque obviamente las palabras ocurren con muy baja frecuencia. 
+
+Veamos cómo podemos empezar.
+
+Empecemos construyendo nuestro data frame tidy_review
+
+```{r datos y tidy_review, warning=FALSE}
+
+# Nuestro data frame original
+review_data <- read_csv("Roomba Reviews.csv")
+
+# Estas eras nuestras stopwords custom. 
+word <- c("roomba","2")
+lexicon <- c("CUSTOM", "CUSTOM")
+custom_sw <-data.frame(word,lexicon)
+
+# Así las uníamos al df de stopwords que trae el paquete tidytext
+stop_words2 <- stop_words %>%
+  bind_rows(custom_sw)
+
+# Así creamos el objeto tidy_review en el que ya tenemos limpia toda la data, tokenizada y libre de stopwords. 
+tidy_review <- review_data %>%
+  mutate(id= row_number()) %>%
+  select(id, Date, Product, Stars, Review) %>%
+  unnest_tokens(word, Review) %>%
+  anti_join (stop_words2)
+
+#finalmente, unimos el diccionario a data frame tidy_review
+
+tidy_review %>%
+  inner_join(get_sentiments("loughran"))
+```
+
+Ahora usaremos cast_dtm() para crear la matriz. 
+
+```{r matriz dtm, warning=FALSE}
+
+tidy_review %>%
+  count(word,id) %>%
+  cast_dtm(id, word, n)
+
+```
+Vean que este DMT tiene enorme sparcity. El siguiente paso es convertirla en matriz. Acá hay que tener cuidado, porque el resultado es una matriz brutalmente grande, de modo que para poder verla, debemos indexarla, es decir, debemos ver un pedacito nada más. 
+
+Veamos. 
+
+```{r creando la matriz, warning=FALSE}
+dtm_review <- tidy_review %>%
+  count(word,id) %>%
+  cast_dtm(id, word, n) %>%
+  as.matrix() #si ven en enviroment de R, esto crea una matriz inmensa, de 17.318.970 elementos y un peso de casi 140 mb. 
+
+dtm_review[1:4, 2000:2004] # aca vemos apenas 4 filas y 4 columnas de esa matriz. 
+
+```
+
+## Creando los topic models
+
+Para crear los modelos, debemos usar el paquete `topicmodels` jutno al paquete de `tidytext` que veníamos usando. 
+
+Veamos cómo se hace. 
+
+La función LDA tiene 4 argumentos. 
+
+El primer argumento de LDA() es el data frame. Ahí especificamos la matriz que construímos recién. Luego se especifica el número de topics (clusters) que queremos. En este caso, 2. En tercer lugar, el método de estimación, para el cual usaremos Gibbs, que es, según la literatura, el más completo. Finalmente, se especifica el seed de la simulación, que debemos tratar como una lista. 
+
+
+```{r creando LDA models, warning=FALSE}
+library(topicmodels)
+
+lda_output <- LDA(
+  dtm_review,
+  k = 2,
+  method = "Gibbs",
+  control = list(seed = 42)
+)
+glimpse(lda_output)
+```
+
+Una vez creado el modelo, podemos extraer de él los tópicos. 
+Esto se hace así. 
+```{r extraer topicos, warning=FALSE}
+lda_topics <- lda_output %>%
+  tidy(matrix = "beta") %>%
+  arrange(desc(beta))
+```
+
+Podríamos evaluar hacer 3 topics en lugar de 2. Para ello, haríamos lo siguiente: 
+```{r 3 topics, warning=FALSE}
+lda_output2 <- LDA(
+  dtm_review,
+  k = 3,
+  method = "Gibbs",
+  control = list(seed = 42))
+
+lda_topics2 <- lda_output2 %>%
+  tidy(matrix = "beta") %>%
+  arrange(desc(beta))
+```
+
+Y por supuesto podemos hacer para 4 topics también. 
+
+```{r 4 topics, warning=FALSE}
+lda_output3 <- LDA(
+  dtm_review,
+  k = 4,
+  method = "Gibbs",
+  control = list(seed = 42))
+
+lda_topics3 <- lda_output3 %>%
+  tidy(matrix = "beta") %>%
+  arrange(desc(beta))
+```
+
+Con estas 3 matrices creadas, podemos hacer objetos que contengan las palabras con más probabilidad y luego graficar ese objeto usando ggplot para poder interpretar los tópicos. 
+
+Veamos primero los 2 tópicos originales. 
+
+
+```{r visualizando topics, warning=FALSE}
+word_probs <-lda_topics %>%
+  group_by(topic) %>%
+  top_n(15, beta) %>%
+  ungroup() %>%
+  mutate(term2 = fct_reorder(term,beta))
+
+ggplot(word_probs, aes(x=term2, y=beta, fill = as.factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ topic, scales = "free") +
+  coord_flip()
+
+```
+Ahora hagámoslo para los otros dos outputs, primero con K=3 y luego k=4. 
+
+```{r visualizando topics 3, warning=FALSE}
+word_probs2 <-lda_topics2 %>%
+  group_by(topic) %>%
+  top_n(15, beta) %>%
+  ungroup() %>%
+  mutate(term2 = fct_reorder(term,beta))
+
+ggplot(word_probs2, aes(x=term2, y=beta, fill = as.factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ topic, scales = "free") +
+  coord_flip()
+
+```
+Finalmente con 4 tópicos
+
+```{r visualizando topics 4, warning=FALSE}
+word_probs3 <-lda_topics3 %>%
+  group_by(topic) %>%
+  top_n(15, beta) %>%
+  ungroup() %>%
+  mutate(term2 = fct_reorder(term,beta))
+
+ggplot(word_probs3, aes(x=term2, y=beta, fill = as.factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ topic, scales = "free") +
+  coord_flip()
+
+```
